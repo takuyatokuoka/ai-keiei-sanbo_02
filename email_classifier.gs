@@ -357,6 +357,54 @@ function logError_(context, errMessage, stack) {
   }
 }
 
+// ===== 動作確認用 =====
+
+/**
+ * 設定と各連携が正しく動くかを個別に確認する診断関数。
+ * メールを処理せずに、スクリプトプロパティ・スプレッドシート・Claude API・Slack を順に検証する。
+ * 実行後は「表示 > ログ」で結果を確認する。
+ */
+function testConfiguration() {
+  var props = PropertiesService.getScriptProperties();
+  var claudeApiKey = props.getProperty('CLAUDE_API_KEY');
+  var slackWebhookUrl = props.getProperty('SLACK_WEBHOOK_URL');
+
+  Logger.log('CLAUDE_API_KEY: ' + (claudeApiKey ? '設定済み' : '未設定'));
+  Logger.log('SLACK_WEBHOOK_URL: ' + (slackWebhookUrl ? '設定済み' : '未設定'));
+
+  // スプレッドシートへアクセスできるか
+  try {
+    var ss = getSpreadsheet_();
+    Logger.log('スプレッドシート: OK (' + ss.getName() + ')');
+  } catch (e) {
+    Logger.log('スプレッドシート: NG - ' + e);
+  }
+
+  // 「要処理」ラベルの有無
+  var todoLabel = GmailApp.getUserLabelByName(LABEL_TODO);
+  Logger.log('ラベル「' + LABEL_TODO + '」: ' + (todoLabel ? 'あり' : 'なし'));
+
+  // Claude API を試し呼び出し
+  if (claudeApiKey) {
+    try {
+      var r = classifyWithClaude_(claudeApiKey, 'テスト件名', '注文した商品がまだ届きません。');
+      Logger.log('Claude API: OK - 分類=' + r.classification + ' / 要約=' + r.summary);
+    } catch (e) {
+      Logger.log('Claude API: NG - ' + e);
+    }
+  }
+
+  // Slack へテスト通知
+  if (slackWebhookUrl) {
+    try {
+      notifySlack_(slackWebhookUrl, '(テスト)通知確認', 'その他', 'これは設定確認用のテスト通知です。');
+      Logger.log('Slack 通知: OK');
+    } catch (e) {
+      Logger.log('Slack 通知: NG - ' + e);
+    }
+  }
+}
+
 // ===== ラベル操作 =====
 
 /**
